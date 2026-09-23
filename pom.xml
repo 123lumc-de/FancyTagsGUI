@@ -24,7 +24,6 @@
     </repositories>
 
     <dependencies>
-        <!-- Paper API für Paper 26.1.2 (Java 25 erforderlich) -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
@@ -32,7 +31,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- LuckPerms API -->
         <dependency>
             <groupId>net.luckperms</groupId>
             <artifactId>api</artifactId>
@@ -40,7 +38,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- bStats -->
         <dependency>
             <groupId>org.bstats</groupId>
             <artifactId>bstats-bukkit</artifactId>
@@ -64,7 +61,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
+                <version>3.6.1</version>
                 <configuration>
                     <relocations>
                         <relocation>
