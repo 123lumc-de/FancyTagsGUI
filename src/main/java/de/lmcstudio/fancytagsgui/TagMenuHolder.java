@@ -41,7 +41,6 @@ public class TagMenuHolder {
         List<SuffixNode> allSuffixes = new ArrayList<>();
 
         if (user != null) {
-            // Durchlaufe ALLE Nodes (inklusive vererbter) und filtere SuffixNodes
             for (Node node : user.getNodes()) {
                 if (node instanceof SuffixNode suffixNode) {
                     allSuffixes.add(suffixNode);
@@ -52,14 +51,14 @@ public class TagMenuHolder {
         // Sortierung: Höchste Weight zuerst
         allSuffixes.sort(Comparator.comparingInt(SuffixNode::getPriority).reversed());
 
-        // Slots für die Suffixe (links oben, wie im Screenshot)
+        // Slots für die Suffixe
         int[] suffixSlots = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
 
         for (int i = 0; i < allSuffixes.size() && i < suffixSlots.length; i++) {
             SuffixNode node = allSuffixes.get(i);
-            // KORREKT: getSuffix() existiert nicht, wir nutzen die MetaData-API
-            // oder speichern den Wert direkt beim Erstellen des Nodes
-            ItemStack item = createTagItem("§7Suffix #" + (i + 1), node.getPriority());
+            // OPTION B: Suffix-String aus dem Node-Key parsen
+            String suffixValue = extractSuffixFromNode(node);
+            ItemStack item = createTagItem(suffixValue, node.getPriority());
             inv.setItem(suffixSlots[i], item);
         }
 
@@ -72,6 +71,21 @@ public class TagMenuHolder {
         inv.setItem(49, removeItem);
 
         player.openInventory(inv);
+    }
+
+    /**
+     * OPTION B: Extrahiert den Suffix-String aus dem Node-Key.
+     * LuckPerms speichert Suffixe als "suffix.<weight>.<value>".
+     * Beispiel: "suffix.100.[Admin]" -> "[Admin]"
+     */
+    private static String extractSuffixFromNode(SuffixNode node) {
+        String key = node.getKey();
+        // Format: "suffix.<weight>.<value>"
+        String[] parts = key.split("\\.", 3);
+        if (parts.length >= 3) {
+            return parts[2];
+        }
+        return "§7Unbekannt";
     }
 
     private static ItemStack createTagItem(String suffix, int weight) {
@@ -124,7 +138,6 @@ public class TagMenuHolder {
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) return "§7Keiner";
 
-        // KORREKT: Über CachedMetaData den aktuell aktiven Suffix auslesen
         String suffix = user.getCachedData().getMetaData().getSuffix();
         return suffix != null ? suffix : "§7Keiner";
     }
