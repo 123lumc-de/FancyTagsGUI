@@ -1,6 +1,7 @@
 package de.lmcstudio.fancytagsgui;
 
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.node.Node;
 import net.luckperms.api.node.types.SuffixNode;
@@ -16,8 +17,6 @@ import java.util.concurrent.TimeUnit;
 public class TagMenuListener implements Listener {
 
     private final FancyTagsGUI plugin;
-
-    /** Priorität des "temporären" Aktivierungs-Nodes, der alle anderen überschreibt. */
     private static final int TEMP_PRIORITY = 9999;
 
     public TagMenuListener(FancyTagsGUI plugin) {
@@ -26,12 +25,10 @@ public class TagMenuListener implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        // Nur auf unser Menü reagieren
         if (!event.getView().getTitle().equals(TagMenuHolder.MENU_TITLE)) {
             return;
         }
 
-        // Verhindern, dass Items aus dem Menü genommen werden
         event.setCancelled(true);
 
         if (!(event.getWhoClicked() instanceof Player player)) {
@@ -43,21 +40,22 @@ public class TagMenuListener implements Listener {
             return;
         }
 
-        // --- "TAG DEAKTIVIEREN"-ITEM (Barrier) ---
+        // Barrier = Tag deaktivieren
         if (clickedItem.getType() == Material.BARRIER) {
             deactivateSuffix(player);
             player.closeInventory();
             return;
         }
 
-        // --- TAG-ITEM (NameTag) ---
+        // NameTag = Suffix aktivieren
         if (clickedItem.getType() == Material.NAME_TAG) {
             if (clickedItem.getItemMeta() == null || clickedItem.getItemMeta().displayName() == null) {
                 return;
             }
 
-            // Anzeigenamen (Component) zu reinem Text serialisieren
-            String suffixValue = PlainTextComponentSerializer.plainText()
+            // KORRIGIERT: MiniMessage.serialize() statt PlainTextComponentSerializer
+            // Dadurch bleiben alle Formatierungen (Farben, Bold, etc.) erhalten
+            String suffixValue = MiniMessage.miniMessage()
                     .serialize(clickedItem.getItemMeta().displayName());
 
             activateSuffix(player, suffixValue);
@@ -65,17 +63,11 @@ public class TagMenuListener implements Listener {
         }
     }
 
-    /**
-     * Aktiviert einen Suffix, ohne andere Suffixe zu löschen.
-     * Der neue Suffix wird als temporärer Node mit hoher Priorität gesetzt
-     * und überschreibt damit die Anzeige, ohne die Original-Nodes anzutasten.
-     */
     private void activateSuffix(Player player, String suffixValue) {
         User user = plugin.getLuckPerms().getUserManager().getUser(player.getUniqueId());
         if (user == null) return;
 
-        // Alten temporären Node entfernen (falls schon einer aktiv war)
-        // KORREKT: Pattern-Matching-Cast, damit getPriority() verfügbar ist
+        // Alten temporären Node entfernen
         user.data().clear(node -> node instanceof SuffixNode suffixNode
                 && suffixNode.getPriority() == TEMP_PRIORITY);
 
@@ -85,29 +77,20 @@ public class TagMenuListener implements Listener {
                 .build();
 
         user.data().add(tempSuffix);
-
-        // WICHTIG: Änderungen speichern
         plugin.getLuckPerms().getUserManager().saveUser(user);
 
-        player.sendMessage("§aDein Tag wurde aktiviert: §f" + suffixValue);
+        player.sendMessage("§aDein Tag wurde aktiviert.");
     }
 
-    /**
-     * Deaktiviert den aktuellen Tag, ohne ihn zu löschen.
-     * Es wird nur der temporäre Node entfernt – der ursprüngliche Suffix
-     * (z. B. aus einer Gruppe) bleibt erhalten und wird wieder sichtbar.
-     */
     private void deactivateSuffix(Player player) {
         User user = plugin.getLuckPerms().getUserManager().getUser(player.getUniqueId());
         if (user == null) return;
 
-        // Nur den temporären Node (Priorität 9999) entfernen
-        // KORREKT: Pattern-Matching-Cast, damit getPriority() verfügbar ist
         user.data().clear(node -> node instanceof SuffixNode suffixNode
                 && suffixNode.getPriority() == TEMP_PRIORITY);
 
         plugin.getLuckPerms().getUserManager().saveUser(user);
 
-        player.sendMessage("§cDein Tag wurde deaktiviert. Der ursprüngliche Suffix ist wieder sichtbar.");
+        player.sendMessage("§cDein Tag wurde deaktiviert.");
     }
 }
