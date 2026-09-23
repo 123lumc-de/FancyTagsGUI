@@ -56,8 +56,8 @@ public class TagMenuHolder {
 
         for (int i = 0; i < suffixNodes.size() && i < suffixSlots.length; i++) {
             SuffixNode node = suffixNodes.get(i);
-            // KORREKT: getValue() liefert den Suffix-String zurück
-            String suffixValue = node.getValue();
+            // KORREKT: Suffix-String aus den MetaData des Users auslesen
+            String suffixValue = user.getCachedData().getMetaData().getSuffix();
             ItemStack item = createTagItem(suffixValue, node.getPriority());
             inv.setItem(suffixSlots[i], item);
         }
