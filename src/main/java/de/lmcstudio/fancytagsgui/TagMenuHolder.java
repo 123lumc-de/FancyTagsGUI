@@ -56,7 +56,7 @@ public class TagMenuHolder {
 
         for (int i = 0; i < suffixNodes.size() && i < suffixSlots.length; i++) {
             SuffixNode node = suffixNodes.get(i);
-            // Verwende getValue() statt getSuffix()
+            // Korrektur: getValue() statt getSuffix()
             ItemStack item = createTagItem(node.getValue(), node.getPriority());
             inv.setItem(suffixSlots[i], item);
         }
@@ -130,7 +130,7 @@ public class TagMenuHolder {
                 }
             }
         }
-        // Verwende getValue() statt getSuffix()
+        // Korrektur: getValue() statt getSuffix()
         return highest != null ? highest.getValue() : "§7Keiner";
     }
 
