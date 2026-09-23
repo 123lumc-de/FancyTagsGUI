@@ -1,5 +1,6 @@
 package de.lmcstudio.fancytagsgui;
 
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.node.Node;
 import net.luckperms.api.node.types.SuffixNode;
@@ -16,80 +17,97 @@ public class TagMenuListener implements Listener {
 
     private final FancyTagsGUI plugin;
 
+    /** Priorität des "temporären" Aktivierungs-Nodes, der alle anderen überschreibt. */
+    private static final int TEMP_PRIORITY = 9999;
+
     public TagMenuListener(FancyTagsGUI plugin) {
         this.plugin = plugin;
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
+        // Nur auf unser Menü reagieren
         if (!event.getView().getTitle().equals(TagMenuHolder.MENU_TITLE)) {
             return;
         }
 
+        // Verhindern, dass Items aus dem Menü genommen werden
         event.setCancelled(true);
 
-        if (event.getWhoClicked() instanceof Player player) {
-            ItemStack clickedItem = event.getCurrentItem();
-            if (clickedItem == null || clickedItem.getType().isAir()) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        ItemStack clickedItem = event.getCurrentItem();
+        if (clickedItem == null || clickedItem.getType().isAir()) {
+            return;
+        }
+
+        // --- "TAG DEAKTIVIEREN"-ITEM (Barrier) ---
+        if (clickedItem.getType() == Material.BARRIER) {
+            deactivateSuffix(player);
+            player.closeInventory();
+            return;
+        }
+
+        // --- TAG-ITEM (NameTag) ---
+        if (clickedItem.getType() == Material.NAME_TAG) {
+            if (clickedItem.getItemMeta() == null || clickedItem.getItemMeta().displayName() == null) {
                 return;
             }
 
-            // Barrier = Tag deaktivieren (nicht löschen!)
-            if (clickedItem.getType() == Material.BARRIER) {
-                deactivateSuffix(player);
-                player.closeInventory();
-                return;
-            }
+            // Anzeigenamen (Component) zu reinem Text serialisieren
+            String suffixValue = PlainTextComponentSerializer.plainText()
+                    .serialize(clickedItem.getItemMeta().displayName());
 
-            // NAME_TAG = Suffix aktivieren
-            if (clickedItem.getType() == Material.NAME_TAG) {
-                String suffixName = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-                        .plainText().serialize(clickedItem.getItemMeta().displayName());
-                activateSuffix(player, suffixName);
-                player.closeInventory();
-            }
+            activateSuffix(player, suffixValue);
+            player.closeInventory();
         }
     }
 
     /**
-     * Aktiviert einen Suffix, ohne den alten zu löschen.
-     * Der neue Suffix wird als temporärer Node mit hoher Priorität gesetzt,
-     * der den alten überschreibt.
+     * Aktiviert einen Suffix, ohne andere Suffixe zu löschen.
+     * Der neue Suffix wird als temporärer Node mit hoher Priorität gesetzt
+     * und überschreibt damit die Anzeige, ohne die Original-Nodes anzutasten.
      */
     private void activateSuffix(Player player, String suffixValue) {
         User user = plugin.getLuckPerms().getUserManager().getUser(player.getUniqueId());
         if (user == null) return;
 
-        // Temporären Suffix mit Priorität 9999 setzen (überschreibt alles)
-        // Nach 30 Tagen abgelaufen (praktisch "unendlich")
-        Node tempSuffix = SuffixNode.builder(suffixValue, 9999)
+        // Alten temporären Node entfernen (falls schon einer aktiv war)
+        // KORREKT: Pattern-Matching-Cast, damit getPriority() verfügbar ist
+        user.data().clear(node -> node instanceof SuffixNode suffixNode
+                && suffixNode.getPriority() == TEMP_PRIORITY);
+
+        // Neuen temporären Node setzen
+        Node tempSuffix = SuffixNode.builder(suffixValue, TEMP_PRIORITY)
                 .expiry(30, TimeUnit.DAYS)
                 .build();
 
-        // Alten temporären Suffix entfernen (falls vorhanden)
-        user.data().clear(node -> node instanceof SuffixNode
-                && node.getPriority() == 9999);
-
         user.data().add(tempSuffix);
+
+        // WICHTIG: Änderungen speichern
         plugin.getLuckPerms().getUserManager().saveUser(user);
 
-        player.sendMessage("§aTag aktiviert: " + suffixValue);
+        player.sendMessage("§aDein Tag wurde aktiviert: §f" + suffixValue);
     }
 
     /**
      * Deaktiviert den aktuellen Tag, ohne ihn zu löschen.
-     * Der temporäre Node wird entfernt, der originale Suffix bleibt erhalten.
+     * Es wird nur der temporäre Node entfernt – der ursprüngliche Suffix
+     * (z. B. aus einer Gruppe) bleibt erhalten und wird wieder sichtbar.
      */
     private void deactivateSuffix(Player player) {
         User user = plugin.getLuckPerms().getUserManager().getUser(player.getUniqueId());
         if (user == null) return;
 
         // Nur den temporären Node (Priorität 9999) entfernen
-        user.data().clear(node -> node instanceof SuffixNode
-                && node.getPriority() == 9999);
+        // KORREKT: Pattern-Matching-Cast, damit getPriority() verfügbar ist
+        user.data().clear(node -> node instanceof SuffixNode suffixNode
+                && suffixNode.getPriority() == TEMP_PRIORITY);
 
         plugin.getLuckPerms().getUserManager().saveUser(user);
 
-        player.sendMessage("§cTag deaktiviert. Dein ursprünglicher Suffix ist wieder sichtbar.");
+        player.sendMessage("§cDein Tag wurde deaktiviert. Der ursprüngliche Suffix ist wieder sichtbar.");
     }
 }
