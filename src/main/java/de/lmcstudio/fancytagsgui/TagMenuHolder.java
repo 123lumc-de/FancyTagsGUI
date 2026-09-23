@@ -13,6 +13,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 public class TagMenuHolder {
@@ -22,55 +23,56 @@ public class TagMenuHolder {
     public static void openMenu(Player player, FancyTagsGUI plugin) {
         Inventory inv = Bukkit.createInventory(null, 54, MENU_TITLE);
 
-        // Glasscheiben als Platzhalter für das Menü
+        // --- GLASSCHEIBEN ALS PLATZHALTER ---
         ItemStack glassPane = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta glassMeta = glassPane.getItemMeta();
         if (glassMeta != null) {
             glassMeta.setDisplayName(" ");
             glassPane.setItemMeta(glassMeta);
         }
-        // Füllt das Inventar mit Glasscheiben
         for (int i = 0; i < 54; i++) {
             inv.setItem(i, glassPane);
         }
 
-        // --- SUFFIXE AUS LUCKPERMS AUSLESEN ---
+        // --- SUFFIXE AUS LUCKPERMS AUSLESEN UND NACH WEIGHT SORTIEREN ---
         LuckPerms luckPerms = plugin.getLuckPerms();
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
 
-        List<String> suffixValues = new ArrayList<>();
+        List<SuffixNode> suffixNodes = new ArrayList<>();
 
         if (user != null) {
-            // Alle Suffix-Nodes des Users auslesen
             for (Node node : user.getNodes()) {
                 if (node instanceof SuffixNode suffixNode) {
-                    suffixValues.add(suffixNode.getSuffix());
+                    suffixNodes.add(suffixNode);
                 }
             }
         }
 
-        // Falls keine Suffixe vorhanden sind, füge einen Platzhalter hinzu
-        if (suffixValues.isEmpty()) {
-            suffixValues.add("§7Keine Suffixe verfügbar");
-        }
+        // Sortierung: Höchste Weight zuerst
+        suffixNodes.sort(Comparator.comparingInt(SuffixNode::getPriority).reversed());
 
         // Slots für die Suffixe (links oben, wie im Screenshot)
         int[] suffixSlots = {10, 11, 12, 13, 14, 15, 16};
 
-        for (int i = 0; i < suffixValues.size() && i < suffixSlots.length; i++) {
-            ItemStack item = createTagItem(suffixValues.get(i));
+        for (int i = 0; i < suffixNodes.size() && i < suffixSlots.length; i++) {
+            SuffixNode node = suffixNodes.get(i);
+            ItemStack item = createTagItem(node.getSuffix(), node.getPriority());
             inv.setItem(suffixSlots[i], item);
         }
 
-        // Das "Tag entfernen"-Item (Barrier mit rotem Symbol, wie im Screenshot)
+        // --- INFO-ITEM: "DEINE TAGS" (Slot 4, oben Mitte) ---
+        ItemStack infoItem = createInfoItem(player, suffixNodes);
+        inv.setItem(4, infoItem);
+
+        // --- "TAG ENTFERNEN"-ITEM (Slot 49, Mitte unten) ---
         ItemStack removeItem = createRemoveItem();
-        inv.setItem(49, removeItem); // Slot in der Mitte unten
+        inv.setItem(49, removeItem);
 
         player.openInventory(inv);
     }
 
-    private static ItemStack createTagItem(String suffix) {
-        ItemStack item = new ItemStack(Material.NAME_TAG); // NameTag als Icon für Suffix
+    private static ItemStack createTagItem(String suffix, int weight) {
+        ItemStack item = new ItemStack(Material.NAME_TAG);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(suffix);
@@ -81,6 +83,7 @@ public class TagMenuHolder {
                     "§fKlicke um einen Suffix hinter",
                     "§fdeinem Namen zu haben.",
                     "",
+                    "§7Gewichtung: §e" + weight,
                     "§7Status: §aVerfügbar",
                     "§e▶ KLICKE §ezum Ausrüsten",
                     "§9Minecraft"
@@ -89,6 +92,44 @@ public class TagMenuHolder {
             item.setItemMeta(meta);
         }
         return item;
+    }
+
+    private static ItemStack createInfoItem(Player player, List<SuffixNode> suffixNodes) {
+        ItemStack item = new ItemStack(Material.PURPLE_SHULKER_BOX);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName("§bDEINE TAGS");
+            List<String> lore = Arrays.asList(
+                    "§7Beschreibung",
+                    "",
+                    "§9Information:",
+                    "§fHier kannst du sehen, welchen",
+                    "§fTag du aktuell ausgerüstet hast.",
+                    "",
+                    "§b✦ Aktueller Tag: §7" + getCurrentSuffix(player),
+                    "§b↗ Verfügbare Tags: §e" + suffixNodes.size(),
+                    "§9Minecraft"
+            );
+            meta.setLore(lore);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    private static String getCurrentSuffix(Player player) {
+        User user = FancyTagsGUI.getPlugin(FancyTagsGUI.class)
+                .getLuckPerms().getUserManager().getUser(player.getUniqueId());
+        if (user == null) return "§7Keiner";
+
+        SuffixNode highest = null;
+        for (Node node : user.getNodes()) {
+            if (node instanceof SuffixNode suffixNode) {
+                if (highest == null || suffixNode.getPriority() > highest.getPriority()) {
+                    highest = suffixNode;
+                }
+            }
+        }
+        return highest != null ? highest.getSuffix() : "§7Keiner";
     }
 
     private static ItemStack createRemoveItem() {
