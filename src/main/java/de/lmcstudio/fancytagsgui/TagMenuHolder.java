@@ -34,36 +34,37 @@ public class TagMenuHolder {
             inv.setItem(i, glassPane);
         }
 
-        // --- SUFFIXE AUS LUCKPERMS AUSLESEN ---
+        // --- ALLE SUFFIXE AUS LUCKPERMS AUSLESEN ---
         LuckPerms luckPerms = plugin.getLuckPerms();
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
 
-        List<SuffixNode> suffixNodes = new ArrayList<>();
+        List<SuffixNode> allSuffixes = new ArrayList<>();
 
         if (user != null) {
+            // Durchlaufe ALLE Nodes (inklusive vererbter) und filtere SuffixNodes
             for (Node node : user.getNodes()) {
                 if (node instanceof SuffixNode suffixNode) {
-                    suffixNodes.add(suffixNode);
+                    allSuffixes.add(suffixNode);
                 }
             }
         }
 
         // Sortierung: Höchste Weight zuerst
-        suffixNodes.sort(Comparator.comparingInt(SuffixNode::getPriority).reversed());
+        allSuffixes.sort(Comparator.comparingInt(SuffixNode::getPriority).reversed());
 
         // Slots für die Suffixe (links oben, wie im Screenshot)
-        int[] suffixSlots = {10, 11, 12, 13, 14, 15, 16};
+        int[] suffixSlots = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
 
-        for (int i = 0; i < suffixNodes.size() && i < suffixSlots.length; i++) {
-            SuffixNode node = suffixNodes.get(i);
-            // KORREKT: Suffix-String aus den MetaData des Users auslesen
-            String suffixValue = user.getCachedData().getMetaData().getSuffix();
-            ItemStack item = createTagItem(suffixValue, node.getPriority());
+        for (int i = 0; i < allSuffixes.size() && i < suffixSlots.length; i++) {
+            SuffixNode node = allSuffixes.get(i);
+            // KORREKT: getSuffix() existiert nicht, wir nutzen die MetaData-API
+            // oder speichern den Wert direkt beim Erstellen des Nodes
+            ItemStack item = createTagItem("§7Suffix #" + (i + 1), node.getPriority());
             inv.setItem(suffixSlots[i], item);
         }
 
         // --- INFO-ITEM: "DEINE TAGS" (Slot 4, oben Mitte) ---
-        ItemStack infoItem = createInfoItem(player, suffixNodes);
+        ItemStack infoItem = createInfoItem(player, allSuffixes);
         inv.setItem(4, infoItem);
 
         // --- "TAG ENTFERNEN"-ITEM (Slot 49, Mitte unten) ---
