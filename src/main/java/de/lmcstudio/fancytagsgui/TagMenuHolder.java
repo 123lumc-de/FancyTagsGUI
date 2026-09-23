@@ -51,23 +51,22 @@ public class TagMenuHolder {
         // Sortierung: Höchste Weight zuerst
         suffixNodes.sort(Comparator.comparingInt(SuffixNode::getPriority).reversed());
 
-        // Slots für die Suffixe
+        // Slots für die Suffixe (links oben, wie im Screenshot)
         int[] suffixSlots = {10, 11, 12, 13, 14, 15, 16};
 
         for (int i = 0; i < suffixNodes.size() && i < suffixSlots.length; i++) {
             SuffixNode node = suffixNodes.get(i);
-            // KORREKT: Suffix-String aus dem Node-Wert extrahieren
-            // Der Wert eines SuffixNode ist der Suffix-String selbst
-            String suffixValue = node.getValue(); // Gibt den Suffix-String zurück
+            // KORREKT: getSuffix() liefert den Suffix-String zurück
+            String suffixValue = node.getSuffix();
             ItemStack item = createTagItem(suffixValue, node.getPriority());
             inv.setItem(suffixSlots[i], item);
         }
 
-        // --- INFO-ITEM ---
+        // --- INFO-ITEM: "DEINE TAGS" (Slot 4, oben Mitte) ---
         ItemStack infoItem = createInfoItem(player, suffixNodes);
         inv.setItem(4, infoItem);
 
-        // --- "TAG ENTFERNEN"-ITEM ---
+        // --- "TAG ENTFERNEN"-ITEM (Slot 49, Mitte unten) ---
         ItemStack removeItem = createRemoveItem();
         inv.setItem(49, removeItem);
 
@@ -124,7 +123,7 @@ public class TagMenuHolder {
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) return "§7Keiner";
 
-        // KORREKT: Über CachedMetaData den aktuellen Suffix auslesen
+        // KORREKT: Über CachedMetaData den aktuell aktiven Suffix auslesen
         String suffix = user.getCachedData().getMetaData().getSuffix();
         return suffix != null ? suffix : "§7Keiner";
     }
