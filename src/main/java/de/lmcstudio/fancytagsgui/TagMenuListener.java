@@ -10,6 +10,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.concurrent.TimeUnit;
+
 public class TagMenuListener implements Listener {
 
     private final FancyTagsGUI plugin;
@@ -20,12 +22,10 @@ public class TagMenuListener implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        // Prüfen ob das Inventar unser Menü ist (anhand des Titels)
         if (!event.getView().getTitle().equals(TagMenuHolder.MENU_TITLE)) {
             return;
         }
 
-        // Verhindern, dass Items aus dem Menü genommen werden
         event.setCancelled(true);
 
         if (event.getWhoClicked() instanceof Player player) {
@@ -34,46 +34,62 @@ public class TagMenuListener implements Listener {
                 return;
             }
 
-            // Wenn das "Tag entfernen"-Item geklickt wurde
+            // Barrier = Tag deaktivieren (nicht löschen!)
             if (clickedItem.getType() == Material.BARRIER) {
-                removeSuffix(player);
+                deactivateSuffix(player);
                 player.closeInventory();
                 return;
             }
 
-            // Wenn ein Tag-Item geklickt wurde
-            if (clickedItem.getType() == Material.BLAZE_ROD) {
-                String suffix = clickedItem.getItemMeta().getDisplayName();
-                applySuffix(player, suffix);
+            // NAME_TAG = Suffix aktivieren
+            if (clickedItem.getType() == Material.NAME_TAG) {
+                String suffixName = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                        .plainText().serialize(clickedItem.getItemMeta().displayName());
+                activateSuffix(player, suffixName);
                 player.closeInventory();
             }
         }
     }
 
-    private void applySuffix(Player player, String suffix) {
+    /**
+     * Aktiviert einen Suffix, ohne den alten zu löschen.
+     * Der neue Suffix wird als temporärer Node mit hoher Priorität gesetzt,
+     * der den alten überschreibt.
+     */
+    private void activateSuffix(Player player, String suffixValue) {
         User user = plugin.getLuckPerms().getUserManager().getUser(player.getUniqueId());
         if (user == null) return;
 
-        // Wichtig: Zuerst alle vorhandenen Suffixe entfernen, um Konflikte zu vermeiden
-        user.data().clear(node -> node instanceof SuffixNode);
+        // Temporären Suffix mit Priorität 9999 setzen (überschreibt alles)
+        // Nach 30 Tagen abgelaufen (praktisch "unendlich")
+        Node tempSuffix = SuffixNode.builder(suffixValue, 9999)
+                .expiry(30, TimeUnit.DAYS)
+                .build();
 
-        // Neuen Suffix setzen
-        Node suffixNode = SuffixNode.builder(suffix, 100).build();
-        user.data().add(suffixNode);
+        // Alten temporären Suffix entfernen (falls vorhanden)
+        user.data().clear(node -> node instanceof SuffixNode
+                && node.getPriority() == 9999);
 
-        // Änderungen speichern
+        user.data().add(tempSuffix);
         plugin.getLuckPerms().getUserManager().saveUser(user);
-        player.sendMessage("§aDein Tag wurde zu " + suffix + " §ageändert.");
+
+        player.sendMessage("§aTag aktiviert: " + suffixValue);
     }
 
-    private void removeSuffix(Player player) {
+    /**
+     * Deaktiviert den aktuellen Tag, ohne ihn zu löschen.
+     * Der temporäre Node wird entfernt, der originale Suffix bleibt erhalten.
+     */
+    private void deactivateSuffix(Player player) {
         User user = plugin.getLuckPerms().getUserManager().getUser(player.getUniqueId());
         if (user == null) return;
 
-        // Alle Suffixe entfernen
-        user.data().clear(node -> node instanceof SuffixNode);
+        // Nur den temporären Node (Priorität 9999) entfernen
+        user.data().clear(node -> node instanceof SuffixNode
+                && node.getPriority() == 9999);
 
         plugin.getLuckPerms().getUserManager().saveUser(user);
-        player.sendMessage("§cDein Tag wurde entfernt.");
+
+        player.sendMessage("§cTag deaktiviert. Dein ursprünglicher Suffix ist wieder sichtbar.");
     }
 }
