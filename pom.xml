@@ -24,11 +24,11 @@
     </repositories>
 
     <dependencies>
-        <!-- Paper API -->
+        <!-- Paper API für Paper 26.1.2 (Java 25 erforderlich) -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>26.1.2-R0.1-SNAPSHOT</version>
+            <version>[26.1.2.build,)</version>
             <scope>provided</scope>
         </dependency>
 
