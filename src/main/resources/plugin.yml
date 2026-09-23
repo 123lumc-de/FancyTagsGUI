@@ -1,0 +1,11 @@
+name: FancyTagsGUI
+version: 1.0.0
+main: de.lmcstudio.fancytagsgui.FancyTagsGUI
+api-version: '1.21'
+author: lmcstudio
+depend: [LuckPerms]
+commands:
+  fancytagsgui:
+    description: Öffnet das FancyTags Auswahlmenü
+    aliases: [tas, tags, ftg]
+    usage: /<command>
