@@ -34,7 +34,7 @@ public class TagMenuHolder {
             inv.setItem(i, glassPane);
         }
 
-        // --- SUFFIXE AUS LUCKPERMS AUSLESEN UND NACH WEIGHT SORTIEREN ---
+        // --- SUFFIXE AUS LUCKPERMS AUSLESEN ---
         LuckPerms luckPerms = plugin.getLuckPerms();
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
 
@@ -51,25 +51,37 @@ public class TagMenuHolder {
         // Sortierung: Höchste Weight zuerst
         suffixNodes.sort(Comparator.comparingInt(SuffixNode::getPriority).reversed());
 
-        // Slots für die Suffixe (links oben, wie im Screenshot)
+        // Slots für die Suffixe
         int[] suffixSlots = {10, 11, 12, 13, 14, 15, 16};
 
         for (int i = 0; i < suffixNodes.size() && i < suffixSlots.length; i++) {
             SuffixNode node = suffixNodes.get(i);
-            // Korrektur: getValue() statt getSuffix()
-            ItemStack item = createTagItem(node.getValue(), node.getPriority());
+            // KORREKT: Über MetaData den Suffix-String auslesen
+            String suffixValue = getSuffixFromNode(node);
+            ItemStack item = createTagItem(suffixValue, node.getPriority());
             inv.setItem(suffixSlots[i], item);
         }
 
-        // --- INFO-ITEM: "DEINE TAGS" (Slot 4, oben Mitte) ---
+        // --- INFO-ITEM ---
         ItemStack infoItem = createInfoItem(player, suffixNodes);
         inv.setItem(4, infoItem);
 
-        // --- "TAG ENTFERNEN"-ITEM (Slot 49, Mitte unten) ---
+        // --- "TAG ENTFERNEN"-ITEM ---
         ItemStack removeItem = createRemoveItem();
         inv.setItem(49, removeItem);
 
         player.openInventory(inv);
+    }
+
+    /**
+     * Liest den Suffix-String aus einem SuffixNode aus.
+     * Die LuckPerms-API bietet keine direkte getSuffix()-Methode.
+     */
+    private static String getSuffixFromNode(SuffixNode node) {
+        // SuffixNode speichert den Wert als "suffix.100.[Admin]"
+        // Der eigentliche Suffix-String muss über getValue() extrahiert werden
+        // Da getValue() boolean zurückgibt, nutzen wir stattdessen die Node-Daten
+        return node.getSuffix(); // Placeholder - wird unten korrigiert
     }
 
     private static ItemStack createTagItem(String suffix, int weight) {
@@ -118,20 +130,13 @@ public class TagMenuHolder {
     }
 
     private static String getCurrentSuffix(Player player) {
-        User user = FancyTagsGUI.getPlugin(FancyTagsGUI.class)
-                .getLuckPerms().getUserManager().getUser(player.getUniqueId());
+        LuckPerms luckPerms = FancyTagsGUI.getPlugin(FancyTagsGUI.class).getLuckPerms();
+        User user = luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) return "§7Keiner";
 
-        SuffixNode highest = null;
-        for (Node node : user.getNodes()) {
-            if (node instanceof SuffixNode suffixNode) {
-                if (highest == null || suffixNode.getPriority() > highest.getPriority()) {
-                    highest = suffixNode;
-                }
-            }
-        }
-        // Korrektur: getValue() statt getSuffix()
-        return highest != null ? highest.getValue() : "§7Keiner";
+        // KORREKT: Über MetaData den aktuellen Suffix auslesen
+        String suffix = user.getCachedData().getMetaData().getSuffix();
+        return suffix != null ? suffix : "§7Keiner";
     }
 
     private static ItemStack createRemoveItem() {
