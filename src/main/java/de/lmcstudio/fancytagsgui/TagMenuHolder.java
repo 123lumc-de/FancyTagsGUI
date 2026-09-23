@@ -1,5 +1,9 @@
 package de.lmcstudio.fancytagsgui;
 
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.node.Node;
+import net.luckperms.api.node.types.SuffixNode;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -7,6 +11,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -17,28 +22,55 @@ public class TagMenuHolder {
     public static void openMenu(Player player, FancyTagsGUI plugin) {
         Inventory inv = Bukkit.createInventory(null, 54, MENU_TITLE);
 
-        // Platzhalter-Suffixe (Hier könntest du dynamisch die Suffixe des Spielers aus LuckPerms laden)
-        // Für das Beispiel nehmen wir zwei Suffixe an
-        String[] availableSuffixes = {"§6[RIZZLER]", "§b[EPIC]"};
+        // Glasscheiben als Platzhalter für das Menü
+        ItemStack glassPane = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        ItemMeta glassMeta = glassPane.getItemMeta();
+        if (glassMeta != null) {
+            glassMeta.setDisplayName(" ");
+            glassPane.setItemMeta(glassMeta);
+        }
+        // Füllt das Inventar mit Glasscheiben
+        for (int i = 0; i < 54; i++) {
+            inv.setItem(i, glassPane);
+        }
 
-        // Slots für die Suffixe (z.B. Slot 10 und 12)
-        int[] suffixSlots = {10, 12};
+        // --- SUFFIXE AUS LUCKPERMS AUSLESEN ---
+        LuckPerms luckPerms = plugin.getLuckPerms();
+        User user = luckPerms.getUserManager().getUser(player.getUniqueId());
 
-        for (int i = 0; i < availableSuffixes.length && i < suffixSlots.length; i++) {
-            ItemStack item = createTagItem(availableSuffixes[i]);
+        List<String> suffixValues = new ArrayList<>();
+
+        if (user != null) {
+            // Alle Suffix-Nodes des Users auslesen
+            for (Node node : user.getNodes()) {
+                if (node instanceof SuffixNode suffixNode) {
+                    suffixValues.add(suffixNode.getSuffix());
+                }
+            }
+        }
+
+        // Falls keine Suffixe vorhanden sind, füge einen Platzhalter hinzu
+        if (suffixValues.isEmpty()) {
+            suffixValues.add("§7Keine Suffixe verfügbar");
+        }
+
+        // Slots für die Suffixe (links oben, wie im Screenshot)
+        int[] suffixSlots = {10, 11, 12, 13, 14, 15, 16};
+
+        for (int i = 0; i < suffixValues.size() && i < suffixSlots.length; i++) {
+            ItemStack item = createTagItem(suffixValues.get(i));
             inv.setItem(suffixSlots[i], item);
         }
 
-        // Das "Tag entfernen"-Item (Slot 49 ist die Mitte der unteren Reihe)
+        // Das "Tag entfernen"-Item (Barrier mit rotem Symbol, wie im Screenshot)
         ItemStack removeItem = createRemoveItem();
-        inv.setItem(49, removeItem);
+        inv.setItem(49, removeItem); // Slot in der Mitte unten
 
-        // Inventar öffnen
         player.openInventory(inv);
     }
 
     private static ItemStack createTagItem(String suffix) {
-        ItemStack item = new ItemStack(Material.BLAZE_ROD);
+        ItemStack item = new ItemStack(Material.NAME_TAG); // NameTag als Icon für Suffix
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(suffix);
