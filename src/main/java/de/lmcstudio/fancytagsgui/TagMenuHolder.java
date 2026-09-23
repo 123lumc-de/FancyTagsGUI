@@ -56,8 +56,9 @@ public class TagMenuHolder {
 
         for (int i = 0; i < suffixNodes.size() && i < suffixSlots.length; i++) {
             SuffixNode node = suffixNodes.get(i);
-            // KORREKT: Über MetaData den Suffix-String auslesen
-            String suffixValue = getSuffixFromNode(node);
+            // KORREKT: Suffix-String aus dem Node-Wert extrahieren
+            // Der Wert eines SuffixNode ist der Suffix-String selbst
+            String suffixValue = node.getValue(); // Gibt den Suffix-String zurück
             ItemStack item = createTagItem(suffixValue, node.getPriority());
             inv.setItem(suffixSlots[i], item);
         }
@@ -71,17 +72,6 @@ public class TagMenuHolder {
         inv.setItem(49, removeItem);
 
         player.openInventory(inv);
-    }
-
-    /**
-     * Liest den Suffix-String aus einem SuffixNode aus.
-     * Die LuckPerms-API bietet keine direkte getSuffix()-Methode.
-     */
-    private static String getSuffixFromNode(SuffixNode node) {
-        // SuffixNode speichert den Wert als "suffix.100.[Admin]"
-        // Der eigentliche Suffix-String muss über getValue() extrahiert werden
-        // Da getValue() boolean zurückgibt, nutzen wir stattdessen die Node-Daten
-        return node.getSuffix(); // Placeholder - wird unten korrigiert
     }
 
     private static ItemStack createTagItem(String suffix, int weight) {
@@ -134,7 +124,7 @@ public class TagMenuHolder {
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) return "§7Keiner";
 
-        // KORREKT: Über MetaData den aktuellen Suffix auslesen
+        // KORREKT: Über CachedMetaData den aktuellen Suffix auslesen
         String suffix = user.getCachedData().getMetaData().getSuffix();
         return suffix != null ? suffix : "§7Keiner";
     }
