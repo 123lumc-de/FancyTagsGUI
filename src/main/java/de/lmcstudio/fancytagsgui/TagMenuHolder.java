@@ -43,7 +43,6 @@ public class TagMenuHolder {
         }
 
         // --- ALLE ECHTEN SUFFIXE AUS LUCKPERMS SAMMELN ---
-        // Wichtig: Der temporäre Node (Priorität 9999) wird NICHT mitgezählt.
         LuckPerms luckPerms = plugin.getLuckPerms();
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
 
@@ -64,8 +63,7 @@ public class TagMenuHolder {
         // Sortierung: Höchste Weight zuerst
         allSuffixes.sort(Comparator.comparingInt(SuffixNode::getPriority).reversed());
 
-        // Aktuell aktiven Suffix ermitteln (das ist der mit der höchsten Priorität,
-        // der gerade tatsächlich angezeigt wird – inkl. temporärem Node)
+        // Aktuell aktiven Suffix ermitteln
         String activeSuffix = getCurrentSuffix(player);
 
         // Slots für die Suffixe
@@ -113,9 +111,10 @@ public class TagMenuHolder {
 
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            Component displayName = MM.deserialize(suffix);
+            // Leerzeichen davor, damit Name und Tag getrennt sind
+            Component displayName = MM.deserialize(" " + suffix);
 
-            // Wenn ausgewählt: grüner Rahmen + Häkchen im Namen
+            // Wenn ausgewählt: grün + fett
             if (isSelected) {
                 displayName = displayName
                         .decoration(TextDecoration.BOLD, true)
@@ -173,7 +172,6 @@ public class TagMenuHolder {
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) return "<gray>Keiner</gray>";
 
-        // getSuffix() liefert den aktuell sichtbaren Suffix – auch den temporären
         String suffix = user.getCachedData().getMetaData().getSuffix();
         return suffix != null ? suffix : "<gray>Keiner</gray>";
     }
