@@ -1,6 +1,8 @@
 package de.lmcstudio.fancytagsgui;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.user.User;
@@ -23,6 +25,9 @@ public class TagMenuHolder {
     public static final String MENU_TITLE = "§8» Tag Auswählen | Menu";
     private static final MiniMessage MM = MiniMessage.miniMessage();
 
+    /** Priorität des temporären Nodes, der zum Aktivieren genutzt wird. */
+    private static final int TEMP_PRIORITY = 9999;
+
     public static void openMenu(Player player, FancyTagsGUI plugin) {
         Inventory inv = Bukkit.createInventory(null, 54, MENU_TITLE);
 
@@ -37,7 +42,8 @@ public class TagMenuHolder {
             inv.setItem(i, glassPane);
         }
 
-        // --- ALLE SUFFIXE AUS LUCKPERMS SAMMELN ---
+        // --- ALLE ECHTEN SUFFIXE AUS LUCKPERMS SAMMELN ---
+        // Wichtig: Der temporäre Node (Priorität 9999) wird NICHT mitgezählt.
         LuckPerms luckPerms = plugin.getLuckPerms();
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
 
@@ -46,6 +52,10 @@ public class TagMenuHolder {
         if (user != null) {
             for (Node node : user.getNodes()) {
                 if (node instanceof SuffixNode suffixNode) {
+                    // Temporären Aktivierungs-Node überspringen
+                    if (suffixNode.getPriority() == TEMP_PRIORITY) {
+                        continue;
+                    }
                     allSuffixes.add(suffixNode);
                 }
             }
@@ -54,15 +64,21 @@ public class TagMenuHolder {
         // Sortierung: Höchste Weight zuerst
         allSuffixes.sort(Comparator.comparingInt(SuffixNode::getPriority).reversed());
 
+        // Aktuell aktiven Suffix ermitteln (das ist der mit der höchsten Priorität,
+        // der gerade tatsächlich angezeigt wird – inkl. temporärem Node)
+        String activeSuffix = getCurrentSuffix(player);
+
         // Slots für die Suffixe
         int[] suffixSlots = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
 
         for (int i = 0; i < allSuffixes.size() && i < suffixSlots.length; i++) {
             SuffixNode node = allSuffixes.get(i);
             String suffixValue = extractSuffixFromNode(node);
-            // MiniMessage-Parsing für den Namen
-            Component displayName = MM.deserialize(suffixValue);
-            ItemStack item = createTagItem(displayName, node.getPriority());
+
+            // Prüfen ob dieser Suffix der aktuell ausgewählte ist
+            boolean isSelected = suffixValue.equals(activeSuffix);
+
+            ItemStack item = createTagItem(suffixValue, node.getPriority(), isSelected);
             inv.setItem(suffixSlots[i], item);
         }
 
@@ -70,13 +86,17 @@ public class TagMenuHolder {
         ItemStack infoItem = createInfoItem(player, allSuffixes);
         inv.setItem(4, infoItem);
 
-        // --- "TAG DEAKTIVIEREN"-ITEM (Barrier) ---
+        // --- "TAG DEAKTIVIEREN"-ITEM ---
         ItemStack removeItem = createRemoveItem();
         inv.setItem(49, removeItem);
 
         player.openInventory(inv);
     }
 
+    /**
+     * Liest den Suffix-String aus dem Node-Key.
+     * Format: "suffix.<weight>.<value>"
+     */
     private static String extractSuffixFromNode(SuffixNode node) {
         String key = node.getKey();
         String[] parts = key.split("\\.", 3);
@@ -86,23 +106,41 @@ public class TagMenuHolder {
         return "§7Unbekannt";
     }
 
-    private static ItemStack createTagItem(Component displayName, int weight) {
-        ItemStack item = new ItemStack(Material.NAME_TAG);
+    private static ItemStack createTagItem(String suffix, int weight, boolean isSelected) {
+        // Ausgewählter Tag = ENCHANTED_BOOK (grün leuchtend), sonst NAME_TAG
+        Material material = isSelected ? Material.ENCHANTED_BOOK : Material.NAME_TAG;
+        ItemStack item = new ItemStack(material);
+
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
+            Component displayName = MM.deserialize(suffix);
+
+            // Wenn ausgewählt: grüner Rahmen + Häkchen im Namen
+            if (isSelected) {
+                displayName = displayName
+                        .decoration(TextDecoration.BOLD, true)
+                        .color(NamedTextColor.GREEN);
+            }
+
             meta.displayName(displayName);
-            // Lore mit MiniMessage (als Components)
-            List<Component> lore = Arrays.asList(
-                    MM.deserialize("<gray>Beschreibung</gray>"),
-                    Component.empty(),
-                    MM.deserialize("<red>Information:</red>"),
-                    MM.deserialize("<white>Klicke um diesen Suffix</white>"),
-                    MM.deserialize("<white>zu aktivieren.</white>"),
-                    Component.empty(),
-                    MM.deserialize("<gray>Gewichtung: </gray><yellow>" + weight + "</yellow>"),
-                    MM.deserialize("<gray>Status: </gray><green>Verfügbar</green>"),
-                    MM.deserialize("<yellow>▶ KLICKE zum Ausrüsten</yellow>")
-            );
+
+            List<Component> lore = new ArrayList<>();
+            lore.add(MM.deserialize("<gray>Beschreibung</gray>"));
+            lore.add(Component.empty());
+            lore.add(MM.deserialize("<red>Information:</red>"));
+            lore.add(MM.deserialize("<white>Klicke um diesen Suffix</white>"));
+            lore.add(MM.deserialize("<white>zu aktivieren.</white>"));
+            lore.add(Component.empty());
+            lore.add(MM.deserialize("<gray>Gewichtung: </gray><yellow>" + weight + "</yellow>"));
+
+            if (isSelected) {
+                lore.add(MM.deserialize("<green>Status: ✔ AUSGEWÄHLT</green>"));
+                lore.add(MM.deserialize("<green>▶ Dieser Tag ist aktuell aktiv</green>"));
+            } else {
+                lore.add(MM.deserialize("<gray>Status: </gray><green>Verfügbar</green>"));
+                lore.add(MM.deserialize("<yellow>▶ KLICKE zum Ausrüsten</yellow>"));
+            }
+
             meta.lore(lore);
             item.setItemMeta(meta);
         }
@@ -135,6 +173,7 @@ public class TagMenuHolder {
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) return "<gray>Keiner</gray>";
 
+        // getSuffix() liefert den aktuell sichtbaren Suffix – auch den temporären
         String suffix = user.getCachedData().getMetaData().getSuffix();
         return suffix != null ? suffix : "<gray>Keiner</gray>";
     }
